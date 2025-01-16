@@ -1,136 +1,132 @@
+import os
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torchvision import datasets, transforms, models
-from torch.utils.data import DataLoader
-import os
-import cv2
+import torch.optim as  optim
+from torchvision import datasets, transforms
+from torchvision import models
+from torch.utils.data import DataLoader, random_split
+from sklearn.model_selection import train_test_split
 import numpy as np
 
-# Set device
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else  'cpu')
 
-# Define data paths
-data_dir = 'path/to/your/dataset'  # Replace with your dataset path
-train_dir = os.path.join(data_dir, 'train')
-val_dir = os.path.join(data_dir, 'val')
-test_dir = os.path.join(data_dir, 'test')
+data_dir = 'Data' # Train foler
 
-# Define data paths
-data_dir = 'path/to/your/dataset'  # Replace with your dataset path
-train_dir = os.path.join(data_dir, 'train')
-val_dir = os.path.join(data_dir, 'val')
-test_dir = os.path.join(data_dir, 'test')
-# Data transformations
-data_transforms = {
-    'train': transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ]),
-    'val': transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ]),
-    'test': transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
-}
+data_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+])
 
-# Load datasets
-train_dataset = datasets.ImageFolder(train_dir, transform=data_transforms['train'])
-val_dataset = datasets.ImageFolder(val_dir, transform=data_transforms['val'])
-test_dataset = datasets.ImageFolder(test_dir, transform=data_transforms['test'])
+full_dataset = datasets.ImageFolder(data_dir, transform=data_transforms)
 
-# Data loaders
+image_paths = [sample[0] for sample in full_dataset.samples]
+labels = [sample[1] for sample in full_dataset.samples]
+
+# Split into train and validation sets
+train_paths, val_paths, train_labels, val_labels = train_test_split(
+    image_paths, labels, test_size=0.05, stratify=labels, random_state=42
+)
+
+# Recreate datasets
+train_dataset = datasets.ImageFolder(data_dir, transform=data_transforms)
+val_dataset = datasets.ImageFolder(data_dir, transform=data_transforms)
+
+from collections import Counter
+class_counts = Counter([sample[1] for sample in full_dataset.samples])
+print(class_counts)
+
+train_dataset.samples = list(zip(train_paths, train_labels))
+val_dataset.samples = list(zip(val_paths, val_labels))
+
+train_size = int(0.95 * len(full_dataset))
+val_size = len(full_dataset) - train_size
+train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
-# Load MobileNetV2 model
 model = models.mobilenet_v2(pretrained=True)
 
-# Modify the classifier
-model.classifier[1] = nn.Linear(model.last_channel, len(train_dataset.classes))
+model.classifier[1] = nn.Linear(model.last_channel, len(full_dataset.classes))
 model = model.to(device)
 
-# Loss and optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Training function
-def train_model(model, dataloaders, criterion, optimizer, num_epochs=10):
+early_stoppin_patience = 10
+best_val_loss = float('inf')
+early_stoppin_counter = 0
+
+def train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=100):
+    global  best_val_loss, early_stoppin_counter
     for epoch in range(num_epochs):
-        print(f'Epoch {epoch + 1}/{num_epochs}')
+        print(f"Epoch {epoch + 1}/{num_epochs}")
         print('-' * 10)
 
-        # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()
-            else:
-                model.eval()
+        model.train()
+        running_loss = 0.0
+        running_corrects = 0
+        for inputs, labels in train_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
 
-            running_loss = 0.0
-            running_corrects = 0
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            _, preds = torch.max(outputs, 1)
+            loss.backward()
+            optimizer.step()
 
-            for inputs, labels in dataloaders[phase]:
+            running_loss += loss.item() * inputs.size(0)
+            running_corrects += torch.sum(preds == labels.data)
+
+        train_loss = running_loss / len(train_loader.dataset)
+        train_acc = running_corrects.double() / len(train_loader.dataset)
+        print(f"train loss: {train_loss:.3f} Acc : {train_acc:.3f}")
+
+        model.eval()
+        running_loss = 0.0
+        running_corrects = 0
+        with torch.no_grad():
+            for inputs, labels in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
-
-                optimizer.zero_grad()
-
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    loss = criterion(outputs, labels)
-                    _, preds = torch.max(outputs, 1)
-
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                _, preds = torch.max(outputs, 1)
 
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
+        
+        val_loss = running_loss / len(val_loader.dataset)
+        val_acc = running_corrects.double() / len(val_loader.dataset)
+        print(f"Val loss : {val_loss:.3f} Acc : {val_acc:.3f}")
+        
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            early_stoppin_counter = 0
+            torch.save(model.state_dict(), 'mobilenet_crack_detect.pth')
+        else:
+            early_stoppin_counter += 1
+            if early_stoppin_counter >= early_stoppin_patience:
+                print("Early stopping triggered.")
+                break
 
-            epoch_loss = running_loss / len(dataloaders[phase].dataset)
-            epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
+train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=100)
 
-            print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-
-    return model
-
-# Prepare dataloaders dictionary
-dataloaders = {
-    'train': train_loader,
-    'val': val_loader
-}
-
-# Train the model
-trained_model = train_model(model, dataloaders, criterion, optimizer, num_epochs=10)
-
-# Save the trained model
-torch.save(trained_model.state_dict(), 'mobilenet_crack_detection.pth')
-
-# Evaluate on test set
-def evaluate_model(model, test_loader):
+def evaluate_model(model, val_loader):
     model.eval()
     running_corrects = 0
 
     with torch.no_grad():
-        for inputs, labels in test_loader:
+        for inputs, labels in val_loader:
             inputs, labels = inputs.to(device), labels.to(device)
-
             outputs = model(inputs)
             _, preds = torch.max(outputs, 1)
-
             running_corrects += torch.sum(preds == labels.data)
 
-    accuracy = running_corrects.double() / len(test_loader.dataset)
-    print(f'Test Accuracy: {accuracy:.4f}')
+    accuracy = running_corrects.double() / len(val_loader.dataset)
+    print(f"Validation Accuracy : {accuracy:.3f}")
 
-# Load model weights
-model.load_state_dict(torch.load('mobilenet_crack_detection.pth'))
-evaluate_model(model, test_loader)
+model.load_state_dict(torch.load('mobilenet_crack_detect.pth'))
+evaluate_model(model, val_loader)

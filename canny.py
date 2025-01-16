@@ -52,8 +52,8 @@ def canny_edge_detection(input_dir, output_dir, threshold1=50, threshold2=150):
         print(f"Processed and saved: {output_path}")
 
 # Set paths for your input and output directories
-input_directory = r"D:\python all collection\kopyae_2\crack_detect\processed_images\processed_images"
-output_directory = r"D:\python all collection\kopyae_2\crack_detect\canny_op"
+input_directory = r"Data/Damaged"
+output_directory = r"Output"
 
 # Run the function
 canny_edge_detection(input_directory, output_directory)

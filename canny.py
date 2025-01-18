@@ -52,7 +52,7 @@ def canny_edge_detection(input_dir, output_dir, threshold1=50, threshold2=150):
         print(f"Processed and saved: {output_path}")
 
 # Set paths for your input and output directories
-input_directory = r"Data/Damaged"
+input_directory = r"Data/Stain"
 output_directory = r"Output"
 
 # Run the function

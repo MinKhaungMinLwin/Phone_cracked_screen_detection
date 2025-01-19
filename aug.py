@@ -4,8 +4,8 @@ import albumentations as A
 import uuid
 
 # Input and output directories
-input_dir = r"D:\python all collection\kopyae_2\crack_detect\dataset_main\dataset_2\train"  # Replace with your input directory
-output_dir = r"D:\python all collection\kopyae_2\crack_detect\output_2"  # Replace with your output directory
+input_dir = r"stain"  # Replace with your input directory
+output_dir = r"Output"  # Replace with your output directory
 
 # Number of augmented images to generate per input image
 num_augmentations = 5

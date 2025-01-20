@@ -50,8 +50,8 @@ def canny_edge_detection(input_dir, output_dir, threshold1=50, threshold2=150):
                 print(f"Error processing {filename}: {e}")
 
 # Set paths for your input and output directories
-input_directory = r"D:\python all collection\kopyae_2\crack_detect\output_4_aug"  # Replace with your input directory
-output_directory = r"D:\python all collection\kopyae_2\crack_detect\output_4_canny"  # Replace with your output directory
+input_directory = r"Data/Stain"  # Replace with your input directory
+output_directory = r"canny_op"  # Replace with your output directory
 
 # Run the function
 canny_edge_detection(input_directory, output_directory)

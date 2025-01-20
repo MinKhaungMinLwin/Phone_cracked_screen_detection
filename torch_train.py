@@ -105,11 +105,11 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             early_stoppin_counter = 0
-            torch.save(model.state_dict(), 'mobilenet_crack_detect.pth')
+            torch.save(model.state_dict(), 'mobilenet_crack_detect_1.pth')
         else:
             early_stoppin_counter += 1
             if early_stoppin_counter >= early_stoppin_patience:
-                print("Early stopping triggered.")
+                print("Early stopping.")
                 break
 
 train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=100)
@@ -128,5 +128,5 @@ def evaluate_model(model, val_loader):
     accuracy = running_corrects.double() / len(val_loader.dataset)
     print(f"Validation Accuracy : {accuracy:.3f}")
 
-model.load_state_dict(torch.load('mobilenet_crack_detect.pth'))
+model.load_state_dict(torch.load('mobilenet_crack_detect_1.pth'))
 evaluate_model(model, val_loader)

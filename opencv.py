@@ -10,8 +10,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Load the trained MobileNet model
 model = models.mobilenet_v2(pretrained=False)
-model.classifier[1] = nn.Linear(model.last_channel, 2)  # Adjust number of classes accordingly
-model.load_state_dict(torch.load('mobilenet_crack_detect.pth', map_location=device))
+model.classifier[1] = nn.Linear(model.last_channel, 5)  # Adjust number of classes accordingly
+model.load_state_dict(torch.load('mobilenet_crack_detect_1.pth', map_location=device))
 model = model.to(device)
 model.eval()
 
@@ -48,7 +48,7 @@ while True:
         confidence = torch.softmax(outputs, dim=1)[0][preds].item()
     
     # Assuming class 0 is "No Crack" and class 1 is "Crack"
-    label_map = {0: "No Crack", 1: "Crack"}
+    label_map = {0: "No Crack", 1: "Crack", 2: "Oil", 3: "Scratches", 4: "Strain"}
     label = label_map[preds.item()]
     
     # Draw bounding box with label and confidence
